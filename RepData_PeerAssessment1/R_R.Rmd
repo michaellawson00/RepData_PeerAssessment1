@@ -1,0 +1,149 @@
+---
+  title: "Reproducible Research Assignment 1 - Week 2"
+  output:
+  html_document: default
+  html_notebook: default
+---
+
+```{r global_options, include=FALSE}
+require("knitr")
+opts_knit$set(root.dir = "C:/Users/Mike/Dropbox/MOOC/R Programming/RR/R_R_files/RepData_PeerAssessment1")
+options(scipen = 999)
+library(dplyr)
+library(lattice)
+```
+
+
+#### Data Loading and Preprocessing :-
+
+```{r}
+setwd("C:/Users/Mike/Dropbox/MOOC/R Programming/RR/R_R_files/RepData_PeerAssessment1")
+unzip('activity.zip')
+Raw_Data <- read.csv('activity.csv')
+
+```
+#### Data Transform:-
+
+```{r}
+TempExtraDigit <- sprintf("%04d", Raw_Data$interval)
+Raw_Data <- mutate(Raw_Data, interval = format(strptime(TempExtraDigit, format="%H%M"), format = "%H:%M"))
+```
+
+
+```{r}
+DateSteps <- with(Raw_Data, tapply(steps, date, sum))
+AverageDailySteps <- mean(DateSteps, na.rm = TRUE)
+```
+
+The average (mean) number of steps taken per day is `r AverageDailySteps`.
+
+
+```{r}
+TotalStepsPerDay_complete <- DateSteps[complete.cases(DateSteps)]
+TotalStepsPerDay_complete
+```
+
+#### Histogram of the total number of steps taken each day:-
+
+```{r, fig.width=8, fig.height=6}
+
+hist(TotalStepsPerDay_complete, xlab = 'Daily Steps',
+     main = "Histogram of Number of Steps Taken per Day")
+
+```
+
+
+The mean number of steps taken per day is `r round(mean(TotalStepsPerDay_complete),digits=1)` and the median value is `r round(median(TotalStepsPerDay_complete),digits=1)`.
+
+#### Average daily activity pattern:-
+
+
+```{r}
+TimeSteps <- with(Raw_Data, tapply(steps, interval, mean, na.rm=TRUE))
+plot(strptime(row.names(TimeSteps), format = "%H:%M"),TimeSteps,type="l",
+     xlab = 'Time', ylab='Steps During 5-min. Interval',
+main = "Time series plot of number of steps per day")
+     
+```
+
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+The 5-minute interval, on average across all the days in the dataset, which contained the maximum number of steps was at `r names(which(TimeSteps==max(TimeSteps)))`.
+
+#### Input missing values:-
+
+
+The number of rows with missing values is `r sum(complete.cases(Raw_Data) == FALSE)`.
+
+Devise a strategy for filling in all of the missing values in the dataset: - 
+
+New dataset that is equal to the original dataset but with the missing data filled in: -
+
+```{r}
+filled_data <- Raw_Data
+filled_data[complete.cases(filled_data) == FALSE, ]$steps <- mean(filled_data$steps, na.rm=TRUE)
+```
+
+Histogram of the total number of steps taken each day: -
+
+```{r, fig.width=8, fig.height=6}
+FilledDateSteps <- with(filled_data, tapply(steps, date, sum))
+```
+
+The mean number of steps taken per day when the filled data is used is `r round(mean(TotalStepsPerDay_complete),digits=1)` compared to `r round(mean(TotalStepsPerDay_complete),digits=1)` for the unfilled data. The median value of the filled data was `r round(median(FilledDateSteps),digits=1)` compared to  `r round(median(TotalStepsPerDay_complete),digits=1)` for the unfilled data. The values are very similar and the missing data seems to have little impact on the results obtained.
+
+```{r}
+
+hist(FilledDateSteps, xlab = 'Daily Steps',
+     main = "Histogram of Number of Steps Taken per Day (filled)")
+
+```
+
+
+
+#### Differences in activity patterns between weekdays and weekends: -
+
+
+```{r}
+filled_data <- mutate(filled_data, DayOfWeek = weekdays(as.Date(date)))
+filled_data <- mutate(filled_data, DayType = factor(filled_data$DayOfWeek == 'Saturday' 
+                           | filled_data$DayOfWeek == 'Sunday', 
+                           labels = c('Weekday', 'Weekend')))
+```
+
+
+
+Panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis): - 
+
+```{r}
+WeekendData <- filled_data[filled_data$DayType=='Weekend',]
+Weekend <- with(WeekendData, tapply(steps, interval, mean, na.rm=TRUE))
+WeekendFrame <- data.frame(Weekend)
+WeekendFrame$DayType = as.factor('Weekend')
+WeekendFrame <- rename(WeekendFrame, steps = Weekend)
+WeekendFrame <- mutate(WeekendFrame, interval = row.names(WeekendFrame))
+
+WeekdayData <- filled_data[filled_data$DayType=='Weekday',]
+Weekday <- with(WeekdayData, tapply(steps, interval, mean, na.rm=TRUE))
+WeekdayFrame <- data.frame(Weekday)
+WeekdayFrame$DayType = as.factor('weekday')
+WeekdayFrame <- rename(WeekdayFrame, steps = Weekday)
+WeekdayFrame <- mutate(WeekdayFrame, interval = row.names(WeekdayFrame))
+
+sorted <- rbind(WeekdayFrame, WeekendFrame)
+```
+
+
+
+
+```{r}
+xyplot(steps~as.POSIXct(strptime(interval, format = "%H:%M"))|factor(DayType),
+       sorted,
+       scales=list(x=list(format="%H-%M")),
+       type='l',
+       layout=c(1,2),
+       xlab='Time',ylab='Number of Steps')
+````
+
+It looks like people are more active in the at about 09:00 on weekdays compared to weekends.
+knit2html()
